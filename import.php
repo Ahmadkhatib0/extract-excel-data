@@ -3,16 +3,19 @@ include "vendor/autoload.php";
 
 $connect = new PDO("mysql:host=localhost;dbname=extract_excel_data", "Ahmad", "12345678");
 
-if ($_Files["import_excel"]['name'] != "") {
+if ($_FILES["import_excel"]["name"] != '') {
     $allowed_extension = array('xls', 'csv', 'xlsx');
-    $inputted_file = explode(".", $_Files['import_excel']['name']);
-    $file_extension = end($inputted_file); //last index from an array
+    $file_array = explode(".", $_FILES["import_excel"]["name"]);
+    $file_extension = end($file_array);
 
     if (in_array($file_extension, $allowed_extension)) {
-        $file_type = \PhpOffice\PhpSpreadsheet\IOFactory::identify
-            ($_Files["import_excel"]['name']);
-        $reader = \PhpOffice\PHPSpreadsheet\IOFactory::createReader($file_type);
-        $spreadsheet = $reader->load($_Files["import_excel"]['name']);
+        $file_name = time() . '.' . $file_extension;
+        move_uploaded_file($_FILES['import_excel']['tmp_name'], $file_name);
+        $file_type = \PhpOffice\PhpSpreadsheet\IOFactory::identify($file_name);
+        $reader = \PhpOffice\PhpSpreadsheet\IOFactory::createReader($file_type);
+
+        $spreadsheet = $reader->load($file_name);
+        unlink($file_name);
         $data = $spreadsheet->getActiveSheet()->toArray();
 
         foreach ($data as $row) {
@@ -39,21 +42,46 @@ if ($_Files["import_excel"]['name'] != "") {
                 ":email" => $row[19],
                 ":webAddress" => $row[20],
             );
-            $query = "
+            $query =
+                "
             INSERT INTO companies
             (registrationNr , companyName , sectorCalssificationCode , sectorCalssification , sectorCommitteeCode
             , sectorCommittee , nace , productionField , registrationDate , address , city , district ,
              region , postalCode , phone1 , phone2 , phone3 ,fax1 ,
-             fax2 , email , webAddress )";
+             fax2 , email , webAddress ) VALUES
+             (
+            :registrationNr,
+            :companyName,
+            :sectorCalssificationCode ,
+            :sectorCalssification ,
+            :sectorCommitteeCode,
+            :sectorCommittee ,
+            :nace ,
+            :productionField ,
+            :registrationDate ,
+            :address ,
+            :city ,
+            :district ,
+            :region ,
+            :postalCode ,
+            :phone1 ,
+            :phone2 ,
+            :phone3 ,
+            :fax1 ,
+            :fax2 ,
+            :email ,
+            :webAddress)
+             ";
             $statement = $connect->prepare($query);
             $statement->execute($insert_data);
         }
         $message = '<div class="alert alert-success">Data Imported Successfully</div>';
+
     } else {
-        $message = '<div class="alert alert-danger">Only .xls or .xlsx file allowed</div>';
+        $message = '<div class="alert alert-danger">Only .xls .csv or .xlsx file allowed</div>';
     }
 } else {
-    $message = "<div class='alert alert-danger'> Please select a file first </div>";
+    $message = '<div class="alert alert-danger">Please Select File</div>';
 }
 
 echo $message;
